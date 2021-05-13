@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/env python3
 import sqlite3
 import hashlib
 from interbot import *
