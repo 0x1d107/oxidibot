@@ -1,0 +1,15 @@
+[Unit]
+Description= Oxidibot telegram bot
+After=network.target
+After=syslog.target
+
+[Service]
+Type=simple
+User=oxidibot
+WorkingDirectory=/usr/local/bin/oxidibot
+ExecStart=/usr/bin/python3 /usr/local/bin/oxidibot/oxidibot.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -66,20 +66,20 @@ help_text = """
 """
 @bot.message_handler(commands=['suggest'])
 def suggest(message):
-	if chat_state.get(message.chat.id,'is_suggesting'):
+	if chat_state.get(message.chat.id,message.from_user.id,'is_suggesting'):
 		bot.send_message(message.chat.id,'Your messages have been saved.')
 		conn.commit()
-		chat_state.set(message.chat.id,0,'is_suggesting')
+		chat_state.set(message.chat.id,message.from_user.id,0,'is_suggesting')
 	else:
 		bot.send_message(message.chat.id,"Please, send your suggested post messages. When you're done just use /suggest command again.")
-		chat_state.set(message.chat.id,1,'is_suggesting')
+		chat_state.set(message.chat.id,message.from_user.id,1,'is_suggesting')
 		cursor.execute(INSERT_POSTS,(0,message.from_user.id,0,-1))
 		cursor.execute("SELECT last_insert_rowid();")
 		last_post_id = cursor.fetchone()[0]
-		chat_state.set(message.chat.id,last_post_id,'post_id')
-@bot.message_handler(func=lambda message: bool(chat_state.get(message.chat.id,'is_suggesting')))
+		chat_state.set(message.chat.id,message.from_user.id,last_post_id,'post_id')
+@bot.message_handler(content_types=['text','audio','video','video_note','document','photo','sticker','voice'],func=lambda message: bool(chat_state.get(message.chat.id,message.from_user.id,'is_suggesting')))
 def post_handler(message):
-	cursor.execute(INSERT_MESSAGES,(message.message_id,message.chat.id,chat_state.get(message.chat.id,'post_id')))
+	cursor.execute(INSERT_MESSAGES,(message.message_id,message.chat.id,chat_state.get(message.chat.id,message.from_user.id,'post_id')))
 @bot.message_handler(commands=['help'])
 def help(message):
     bot.send_message(message.chat.id,help_text)
@@ -93,9 +93,9 @@ def myid(message):
 
 @bot.message_handler(commands=['auth'])
 def auth(message):
-	if chat_state.get(message.chat.id,'is_admin'):
+	if chat_state.get(message.chat.id,message.from_user.id,'is_admin'):
 		bot.send_message(message.chat.id,"Ok, I guess you're not an admin any more.")
-		chat_state.set(message.chat.id,0,'is_admin')
+		chat_state.set(message.chat.id,message.from_user.id,0,'is_admin')
 		return
 	params = message.text.split(' ')
 	if len(params)<2:
@@ -107,12 +107,12 @@ def auth(message):
 	print(digest)
 	if digest == provided_token:
 		bot.send_message(message.chat.id,"You're now an admin!")
-		chat_state.set(message.chat.id,1,'is_admin')
+		chat_state.set(message.chat.id,message.from_user.id,1,'is_admin')
 	else:
 		bot.send_message(message.chat.id,"You're not supposed to be here!")
 @bot.message_handler(commands=['inbox_next'])
 def show_inbox(message):
-	if chat_state.get(message.chat.id,'is_admin'):
+	if chat_state.get(message.chat.id,message.from_user.id,'is_admin'):
 		cursor.execute(SELECT_POSTS_INBOX)
 		
 		post = cursor.fetchone()
@@ -132,7 +132,7 @@ def show_inbox(message):
 			bot.send_message(msg.chat.id,"Rejected post!")
 		def publish(msg):
 			for msg_id,chat_id in cursor.execute(SELECT_MESSAGES_POST,[post[0]]):
-				channel_post(chat_id,msg_id)
+				channel_post(chat_id,msg_id,bool(post[2]))
 			cursor.execute(UPDATE_POST_PUBLISHED,[post[0]])
 			conn.commit()
 			bot.send_message(msg.chat.id,"Published the post!")
@@ -141,7 +141,7 @@ def show_inbox(message):
 			"Reject": reject,
 			"Cancel":lambda m: bot.send_message(m.chat.id,"Cancelled review")
 		}
-		interbot_prompt_select(message.chat.id,"Action",actions)
+		interbot_prompt_select(message.chat.id,message.from_user.id,"Action",actions)
 	else:
 		bot.send_message(message.chat.id,":(")
 bot.polling()
